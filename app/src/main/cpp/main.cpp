@@ -161,7 +161,9 @@ private:
         assets_.enemyScout = renderer_->loadTexture("enemy_scout.png", true);
         assets_.enemySnake = renderer_->loadTexture("enemy_snake.png", true);
         assets_.enemyTurret = renderer_->loadTexture("enemy_turret.png", true);
-        assets_.boss = renderer_->loadTexture("boss_carrier.png", true);
+        assets_.bossCarrier = renderer_->loadTexture("boss_carrier.png", true);
+        assets_.bossHunter = renderer_->loadTexture("boss_hunter.png", true);
+        assets_.bossPrism = renderer_->loadTexture("boss_prism.png", true);
         assets_.playerBullet = renderer_->loadTexture("bullet_player.png", true);
         assets_.boostedPlayerBullet = renderer_->loadTexture("bullet_player_boost.png", true);
         assets_.enemyBullet = renderer_->loadTexture("bullet_enemy.png", true);

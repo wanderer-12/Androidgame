@@ -29,6 +29,9 @@ int main() {
     assert(game.health() == 100);
     assert(std::abs(game.playerStats().damage - 20.0f) < 0.001f);
     assert(std::abs(game.playerStats().fireInterval - 0.45f) < 0.001f);
+    assert(std::abs(game.debugEnemyHealth(EnemyType::Scout) - 12.5f) < 0.001f);
+    assert(std::abs(game.debugEnemyHealth(EnemyType::Snake) - 22.5f) < 0.001f);
+    assert(std::abs(game.debugEnemyHealth(EnemyType::Turret) - 45.0f) < 0.001f);
 
     InputState move;
     move.down = true;
@@ -57,16 +60,17 @@ int main() {
     game.handleInput(resume);
     assert(game.state() == GameState::Playing);
 
-    game.debugSetNormalCombatTime(119.9f);
+    game.debugSetNormalCombatTime(89.9f);
     step(game, 0.2f);
     assert(game.state() == GameState::BossIntro);
     assert((game.consumeEvents() & EventBossWarning) != 0);
     step(game, 2.3f);
     assert(game.state() == GameState::BossFight);
     assert(game.boss().active);
-    assert(std::abs(game.boss().maxHealth - 800.0f) < 0.1f);
+    assert(game.boss().type == BossType::Carrier);
+    assert(std::abs(game.boss().maxHealth - 400.0f) < 0.1f);
 
-    game.debugDamageBoss(800.0f);
+    game.debugDamageBoss(400.0f);
     assert(game.state() == GameState::UpgradeSelect);
     assert(game.progress().bossesDefeated == 1);
     assert((game.consumeEvents() & EventBossDefeat) != 0);
@@ -77,6 +81,24 @@ int main() {
     game.handleInput(chooseDamage);
     assert(game.state() == GameState::Playing);
     assert(std::abs(game.playerStats().damage - 25.0f) < 0.01f);
+
+    game.debugSetNormalCombatTime(89.9f);
+    step(game, 0.2f);
+    assert(game.state() == GameState::BossIntro);
+    assert(game.boss().type == BossType::Hunter);
+    game.debugDamageBoss(game.boss().maxHealth);
+    assert(game.progress().bossesDefeated == 2);
+    game.handleInput(chooseDamage);
+    assert(game.state() == GameState::Playing);
+
+    game.debugSetNormalCombatTime(89.9f);
+    step(game, 0.2f);
+    assert(game.state() == GameState::BossIntro);
+    assert(game.boss().type == BossType::Prism);
+    game.debugDamageBoss(game.boss().maxHealth);
+    assert(game.progress().bossesDefeated == 3);
+    game.handleInput(chooseDamage);
+    assert(game.state() == GameState::Playing);
 
     Game pickupGame(0);
     pickupGame.handleInput(start);

@@ -19,6 +19,7 @@ enum class GameState {
 };
 
 enum class EnemyType { Scout, Snake, Turret };
+enum class BossType { Carrier, Hunter, Prism };
 enum class PickupType {
     Shield,
     Heal,
@@ -88,6 +89,7 @@ struct Bullet {
 
 struct Boss {
     bool active = false;
+    BossType type = BossType::Carrier;
     float x = 180.0f;
     float y = -60.0f;
     float vx = 0.0f;
@@ -97,6 +99,7 @@ struct Boss {
     float burstTimer = 0.0f;
     float hitFlash = 0.0f;
     float phaseFlash = 0.0f;
+    float age = 0.0f;
     int burstShots = 0;
     int phase = 1;
 };
@@ -119,7 +122,9 @@ struct GameAssets {
     std::shared_ptr<TextureAsset> enemyScout;
     std::shared_ptr<TextureAsset> enemySnake;
     std::shared_ptr<TextureAsset> enemyTurret;
-    std::shared_ptr<TextureAsset> boss;
+    std::shared_ptr<TextureAsset> bossCarrier;
+    std::shared_ptr<TextureAsset> bossHunter;
+    std::shared_ptr<TextureAsset> bossPrism;
     std::shared_ptr<TextureAsset> playerBullet;
     std::shared_ptr<TextureAsset> boostedPlayerBullet;
     std::shared_ptr<TextureAsset> enemyBullet;
@@ -172,6 +177,7 @@ public:
 
 #ifdef CANYON_HEADLESS_TEST
     void debugSetNormalCombatTime(float seconds) { progress_.normalCombatTime = seconds; }
+    float debugEnemyHealth(EnemyType type, int stage = 0) const;
     void debugDamageBoss(float damage);
     void debugApplyPickup(PickupType type);
     void debugDamagePlayer(float damage);

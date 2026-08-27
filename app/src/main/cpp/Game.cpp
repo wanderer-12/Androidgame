@@ -12,9 +12,10 @@
 namespace {
 constexpr float kPi = 3.14159265358979323846f;
 constexpr float kPlayerRadius = 20.0f;
-constexpr float kNormalBossInterval = 120.0f;
+constexpr float kNormalBossInterval = 90.0f;
 constexpr float kBossIntroDuration = 2.2f;
 constexpr float kWorldTop = 84.0f;
+constexpr float kEnemyHealthMultiplier = 0.5f;
 
 template <typename Collection>
 typename Collection::value_type *firstInactive(Collection &collection) {
@@ -27,10 +28,24 @@ typename Collection::value_type *firstInactive(Collection &collection) {
 float scaleForStage(int stage, float amount) {
     return std::pow(1.0f + amount, static_cast<float>(stage));
 }
+
+float enemyHealthFor(EnemyType type, int stage) {
+    const float baseHealth = type == EnemyType::Scout
+                                     ? 25.0f
+                                     : (type == EnemyType::Snake ? 45.0f : 90.0f);
+    return baseHealth * kEnemyHealthMultiplier * scaleForStage(stage, 0.35f);
+}
+
+float bossCollisionRadius(BossType type) {
+    if (type == BossType::Hunter) return 46.0f;
+    if (type == BossType::Prism) return 44.0f;
+    return 50.0f;
+}
 }
 
 bool GameAssets::complete() const {
-    return background && player && enemyScout && enemySnake && enemyTurret && boss &&
+    return background && player && enemyScout && enemySnake && enemyTurret && bossCarrier &&
+           bossHunter && bossPrism &&
            playerBullet && boostedPlayerBullet && enemyBullet && effectRing && shieldAura &&
            pickupShield && pickupHeal && pickupAttack && shield && warning && explosion &&
            upgradeDamage && upgradeFire && upgradeHealth && font;
@@ -191,12 +206,16 @@ void Game::beginBossIntro() {
     state_ = GameState::BossIntro;
     bossIntroTimer_ = kBossIntroDuration;
     boss_.active = true;
+    boss_.type = static_cast<BossType>(progress_.bossesDefeated % 3);
     boss_.x = 180.0f;
     boss_.y = -56.0f;
-    boss_.vx = 42.0f * (progress_.bossesDefeated % 2 == 0 ? 1.0f : -1.0f);
-    boss_.maxHealth = 800.0f * scaleForStage(progress_.bossesDefeated, 0.4f);
+    const float direction = progress_.bossesDefeated % 2 == 0 ? 1.0f : -1.0f;
+    boss_.vx = (boss_.type == BossType::Hunter ? 76.0f : 42.0f) * direction;
+    boss_.maxHealth = 800.0f * kEnemyHealthMultiplier *
+                      scaleForStage(progress_.bossesDefeated, 0.4f);
     boss_.health = boss_.maxHealth;
     boss_.phase = 1;
+    boss_.age = 0.0f;
     boss_.shootTimer = 1.0f;
     boss_.burstShots = 0;
     clearCombatObjects();
@@ -226,7 +245,6 @@ void Game::spawnEnemy() {
     else if (roll < (stage > 0 ? 0.76f : 0.84f)) enemy->type = EnemyType::Snake;
     else enemy->type = EnemyType::Turret;
 
-    const float hpScale = scaleForStage(stage, 0.35f);
     const float damageScale = scaleForStage(stage, 0.15f);
     const float speedScale = scaleForStage(stage, 0.08f);
     enemy->active = true;
@@ -236,21 +254,21 @@ void Game::spawnEnemy() {
     enemy->age = 0.0f;
     enemy->hitFlash = 0.0f;
     if (enemy->type == EnemyType::Scout) {
-        enemy->health = 25.0f * hpScale;
+        enemy->health = enemyHealthFor(enemy->type, stage);
         enemy->vy = 170.0f * speedScale;
         enemy->vx = randomFloat(-20.0f, 20.0f) * speedScale;
         enemy->radius = 16.0f;
         enemy->contactDamage = 20.0f * damageScale;
         enemy->shootTimer = 999.0f;
     } else if (enemy->type == EnemyType::Snake) {
-        enemy->health = 45.0f * hpScale;
+        enemy->health = enemyHealthFor(enemy->type, stage);
         enemy->vy = 92.0f * speedScale;
         enemy->vx = 0.0f;
         enemy->radius = 19.0f;
         enemy->contactDamage = 20.0f * damageScale;
         enemy->shootTimer = randomFloat(1.2f, 3.5f);
     } else {
-        enemy->health = 90.0f * hpScale;
+        enemy->health = enemyHealthFor(enemy->type, stage);
         enemy->vy = 54.0f * speedScale;
         enemy->vx = randomFloat(-12.0f, 12.0f) * speedScale;
         enemy->radius = 23.0f;
@@ -510,7 +528,8 @@ void Game::updateBullets(float deltaSeconds) {
             continue;
         }
         if (state_ == GameState::BossFight && boss_.active &&
-            collides(bullet.x, bullet.y, bullet.radius, boss_.x, boss_.y, 50.0f)) {
+            collides(bullet.x, bullet.y, bullet.radius, boss_.x, boss_.y,
+                     bossCollisionRadius(boss_.type))) {
             const float damage = bullet.damage;
             bullet.active = false;
             damageBoss(damage);
@@ -562,8 +581,7 @@ void Game::updateBoss(float deltaSeconds) {
     if (!boss_.active) return;
     boss_.hitFlash = std::max(0.0f, boss_.hitFlash - deltaSeconds);
     boss_.phaseFlash = std::max(0.0f, boss_.phaseFlash - deltaSeconds);
-    boss_.x += boss_.vx * deltaSeconds;
-    if (boss_.x < 78.0f || boss_.x > 282.0f) boss_.vx = -boss_.vx;
+    boss_.age += deltaSeconds;
 
     const float ratio = boss_.health / std::max(1.0f, boss_.maxHealth);
     const int phase = ratio > 0.66f ? 1 : (ratio > 0.33f ? 2 : 3);
@@ -573,39 +591,86 @@ void Game::updateBoss(float deltaSeconds) {
         pendingEvents_ |= EventBossWarning;
     }
     const float damage = 18.0f * scaleForStage(progress_.bossesDefeated, 0.15f);
-    if (boss_.phase == 1) {
-        boss_.shootTimer -= deltaSeconds;
-        if (boss_.shootTimer <= 0.0f) {
-            spawnAimedEnemyBullet(boss_.x, boss_.y + 34.0f, 188.0f, damage);
-            boss_.shootTimer += 1.15f;
-        }
-    } else if (boss_.phase == 2) {
-        boss_.shootTimer -= deltaSeconds;
-        if (boss_.shootTimer <= 0.0f) {
-            for (int i = -2; i <= 2; ++i) {
-                spawnAimedEnemyBullet(boss_.x, boss_.y + 34.0f, 176.0f, damage,
-                                      static_cast<float>(i) * 0.13f);
-            }
-            boss_.shootTimer += 1.35f;
-        }
-    } else {
-        if (boss_.burstShots > 0) {
-            boss_.burstTimer -= deltaSeconds;
-            if (boss_.burstTimer <= 0.0f) {
-                spawnAimedEnemyBullet(boss_.x, boss_.y + 34.0f, 194.0f, damage);
-                --boss_.burstShots;
-                boss_.burstTimer += 0.13f;
-            }
-        } else {
+    if (boss_.type == BossType::Carrier) {
+        boss_.x += boss_.vx * deltaSeconds;
+        if (boss_.x < 78.0f || boss_.x > 282.0f) boss_.vx = -boss_.vx;
+        if (boss_.phase == 1) {
             boss_.shootTimer -= deltaSeconds;
             if (boss_.shootTimer <= 0.0f) {
-                boss_.burstShots = 7;
-                boss_.burstTimer = 0.0f;
-                boss_.shootTimer += 1.1f;
+                spawnAimedEnemyBullet(boss_.x, boss_.y + 34.0f, 188.0f, damage);
+                boss_.shootTimer += 1.15f;
+            }
+        } else if (boss_.phase == 2) {
+            boss_.shootTimer -= deltaSeconds;
+            if (boss_.shootTimer <= 0.0f) {
+                for (int i = -2; i <= 2; ++i) {
+                    spawnAimedEnemyBullet(boss_.x, boss_.y + 34.0f, 176.0f, damage,
+                                          static_cast<float>(i) * 0.13f);
+                }
+                boss_.shootTimer += 1.35f;
+            }
+        } else {
+            if (boss_.burstShots > 0) {
+                boss_.burstTimer -= deltaSeconds;
+                if (boss_.burstTimer <= 0.0f) {
+                    spawnAimedEnemyBullet(boss_.x, boss_.y + 34.0f, 194.0f, damage);
+                    --boss_.burstShots;
+                    boss_.burstTimer += 0.13f;
+                }
+            } else {
+                boss_.shootTimer -= deltaSeconds;
+                if (boss_.shootTimer <= 0.0f) {
+                    boss_.burstShots = 7;
+                    boss_.burstTimer = 0.0f;
+                    boss_.shootTimer += 1.1f;
+                }
             }
         }
+    } else if (boss_.type == BossType::Hunter) {
+        boss_.x += boss_.vx * deltaSeconds;
+        if (boss_.x < 66.0f || boss_.x > 294.0f) boss_.vx = -boss_.vx;
+        boss_.y = 116.0f + std::sin(boss_.age * 2.1f) * 12.0f;
+        boss_.shootTimer -= deltaSeconds;
+        if (boss_.shootTimer <= 0.0f) {
+            if (boss_.phase == 1) {
+                spawnAimedEnemyBullet(boss_.x - 24.0f, boss_.y + 30.0f, 210.0f, damage, -0.10f);
+                spawnAimedEnemyBullet(boss_.x + 24.0f, boss_.y + 30.0f, 210.0f, damage, 0.10f);
+                boss_.shootTimer += 1.1f;
+            } else if (boss_.phase == 2) {
+                for (int i = -1; i <= 1; ++i) {
+                    spawnAimedEnemyBullet(boss_.x, boss_.y + 34.0f, 218.0f, damage,
+                                          static_cast<float>(i) * 0.22f);
+                }
+                boss_.shootTimer += 0.86f;
+            } else {
+                spawnAimedEnemyBullet(boss_.x - 22.0f, boss_.y + 32.0f, 232.0f, damage, -0.16f);
+                spawnAimedEnemyBullet(boss_.x + 22.0f, boss_.y + 32.0f, 232.0f, damage, 0.16f);
+                spawnEnemyBullet(boss_.x, boss_.y + 24.0f, kPi * 0.25f, 188.0f, damage);
+                spawnEnemyBullet(boss_.x, boss_.y + 24.0f, kPi * 0.75f, 188.0f, damage);
+                boss_.shootTimer += 0.68f;
+            }
+        }
+    } else {
+        boss_.x = 180.0f + std::sin(boss_.age * 0.85f) * 102.0f;
+        boss_.y = 116.0f + std::cos(boss_.age * 1.7f) * 14.0f;
+        boss_.shootTimer -= deltaSeconds;
+        if (boss_.shootTimer <= 0.0f) {
+            const int projectileCount = 4 + boss_.phase * 2;
+            const float angleOffset = boss_.age * 0.9f;
+            for (int i = 0; i < projectileCount; ++i) {
+                const float angle = angleOffset + 2.0f * kPi * static_cast<float>(i) /
+                                                    static_cast<float>(projectileCount);
+                spawnEnemyBullet(boss_.x, boss_.y + 10.0f, angle,
+                                 138.0f + boss_.phase * 14.0f, damage * 0.72f);
+            }
+            if (boss_.phase == 3) {
+                spawnAimedEnemyBullet(boss_.x, boss_.y + 30.0f, 214.0f, damage);
+            }
+            boss_.shootTimer += boss_.phase == 1 ? 1.65f : (boss_.phase == 2 ? 1.35f : 1.05f);
+        }
     }
-    if (collides(playerX_, playerY_, kPlayerRadius, boss_.x, boss_.y, 50.0f)) {
+    if (collides(playerX_, playerY_, kPlayerRadius, boss_.x, boss_.y,
+                 bossCollisionRadius(boss_.type))) {
         damagePlayer(28.0f * scaleForStage(progress_.bossesDefeated, 0.15f), playerX_, playerY_);
     }
 }
@@ -703,6 +768,10 @@ std::size_t Game::activePickupEffects() const {
 }
 
 #ifdef CANYON_HEADLESS_TEST
+float Game::debugEnemyHealth(EnemyType type, int stage) const {
+    return enemyHealthFor(type, stage);
+}
+
 void Game::debugDamageBoss(float damage) {
     if (!boss_.active) beginBossIntro();
     boss_.active = true;
@@ -797,7 +866,20 @@ void Game::render(Renderer &renderer, const GameAssets &assets) const {
         }
     }
     if (boss_.active) {
-        renderer.drawSprite(*assets.boss, boss_.x + shakeX, boss_.y + shakeY, 140.0f, 110.0f,
+        const TextureAsset *bossTexture = assets.bossCarrier.get();
+        float bossWidth = 140.0f;
+        float bossHeight = 110.0f;
+        if (boss_.type == BossType::Hunter) {
+            bossTexture = assets.bossHunter.get();
+            bossWidth = 122.0f;
+            bossHeight = 120.0f;
+        } else if (boss_.type == BossType::Prism) {
+            bossTexture = assets.bossPrism.get();
+            bossWidth = 116.0f;
+            bossHeight = 116.0f;
+        }
+        renderer.drawSprite(*bossTexture, boss_.x + shakeX, boss_.y + shakeY,
+                            bossWidth, bossHeight,
                             0.0f, boss_.hitFlash > 0.0f ? Color{1.0f, 1.0f, 1.0f, 1.0f}
                                                          : Color{});
     }
@@ -880,11 +962,15 @@ void Game::render(Renderer &renderer, const GameAssets &assets) const {
         renderer.drawText(*assets.font, timer, 88.0f, 49.0f, 0.78f, {});
     }
     if (boss_.active && (state_ == GameState::BossIntro || state_ == GameState::BossFight)) {
-        renderer.drawRect(180.0f, 77.0f, 300.0f, 8.0f, {0.18f, 0.04f, 0.06f, 1.0f});
-        renderer.drawRect(30.0f + 150.0f * (boss_.health / std::max(1.0f, boss_.maxHealth)),
-                          77.0f, 300.0f * boss_.health / std::max(1.0f, boss_.maxHealth), 8.0f,
+        const float bossHealthRatio = boss_.health / std::max(1.0f, boss_.maxHealth);
+        renderer.drawRect(198.0f, 77.0f, 264.0f, 8.0f, {0.18f, 0.04f, 0.06f, 1.0f});
+        renderer.drawRect(66.0f + 132.0f * bossHealthRatio,
+                          77.0f, 264.0f * bossHealthRatio, 8.0f,
                           {0.88f, 0.16f, 0.24f, 1.0f});
-        renderer.drawText(*assets.font, "BOSS", 7.0f, 71.0f, 0.78f,
+        const char *bossName = boss_.type == BossType::Carrier
+                                       ? "CARRIER"
+                                       : (boss_.type == BossType::Hunter ? "HUNTER" : "PRISM");
+        renderer.drawText(*assets.font, bossName, 7.0f, 71.0f, 0.78f,
                           {1.0f, 0.52f, 0.4f, 1.0f});
     }
 
