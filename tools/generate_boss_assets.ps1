@@ -70,6 +70,42 @@ function Save-Prism([string]$path) {
     $bitmap.Dispose()
 }
 
+function Save-Flanker([string]$path) {
+    $bitmap = [System.Drawing.Bitmap]::new(64, 64, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+    $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+    $graphics.Clear([System.Drawing.Color]::Transparent)
+    $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::None
+    Add-Polygon $graphics '#202733' '#0E121B' 3 @(@(32,2),@(43,17),@(61,25),@(51,35),@(43,57),@(32,62),@(21,57),@(13,35),@(3,25),@(21,17))
+    Add-Polygon $graphics '#D94B63' '#6C1C37' 2 @(@(32,8),@(39,23),@(55,28),@(42,32),@(36,52),@(32,57),@(28,52),@(22,32),@(9,28),@(25,23))
+    Add-Polygon $graphics '#F4D35E' '#906B1C' 2 @(@(32,14),@(37,27),@(32,42),@(27,27))
+    Add-Rect $graphics '#7CF5FF' 28 29 8 8
+    Add-Rect $graphics '#FF8A3D' 8 27 8 4
+    Add-Rect $graphics '#FF8A3D' 48 27 8 4
+    $graphics.Dispose()
+    $bitmap.Save($path, [System.Drawing.Imaging.ImageFormat]::Png)
+    $bitmap.Dispose()
+}
+
+function Save-Tempest([string]$path) {
+    $bitmap = [System.Drawing.Bitmap]::new(128, 112, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+    $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+    $graphics.Clear([System.Drawing.Color]::Transparent)
+    $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::None
+    Add-Polygon $graphics '#1B3048' '#091523' 5 @(@(64,3),@(78,15),@(96,17),@(111,33),@(125,48),@(111,63),@(105,88),@(82,82),@(64,109),@(46,82),@(23,88),@(17,63),@(3,48),@(17,33),@(32,17),@(50,15))
+    Add-Polygon $graphics '#2A74A8' '#124365' 4 @(@(64,11),@(75,25),@(99,27),@(113,47),@(98,60),@(93,79),@(74,73),@(64,99),@(54,73),@(35,79),@(30,60),@(15,47),@(29,27),@(53,25))
+    Add-Polygon $graphics '#72D6E8' '#247D99' 3 @(@(64,22),@(72,38),@(91,47),@(74,56),@(64,88),@(54,56),@(37,47),@(56,38))
+    Add-Polygon $graphics '#E8F7FF' '#6DB7CC' 3 @(@(64,31),@(73,46),@(64,68),@(55,46))
+    Add-Rect $graphics '#FFCC4D' 28 42 16 6
+    Add-Rect $graphics '#FFCC4D' 84 42 16 6
+    Add-Rect $graphics '#DFFBFF' 59 45 10 16
+    Add-Rect $graphics '#FF6B5A' 60 64 8 9
+    $graphics.Dispose()
+    $bitmap.Save($path, [System.Drawing.Imaging.ImageFormat]::Png)
+    $bitmap.Dispose()
+}
+
 $assetDirectory = Join-Path $PSScriptRoot '..\app\src\main\assets'
 Save-Hunter (Join-Path $assetDirectory 'boss_hunter.png')
 Save-Prism (Join-Path $assetDirectory 'boss_prism.png')
+Save-Flanker (Join-Path $assetDirectory 'enemy_flanker.png')
+Save-Tempest (Join-Path $assetDirectory 'boss_tempest.png')

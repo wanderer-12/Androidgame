@@ -15,7 +15,7 @@ import com.google.androidgamesdk.GameActivity;
 public class MainActivity extends GameActivity {
     private static final String PREFERENCES_NAME = "canyon_breakout";
     private static final String HIGH_SCORE_KEY = "high_score";
-    private static final int SAVE_VALUE_COUNT = 11;
+    private static final int SAVE_VALUE_COUNT = 12;
 
     private SoundPool soundPool;
     private int[] soundIds;
@@ -35,15 +35,17 @@ public class MainActivity extends GameActivity {
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                 .build();
         soundPool = new SoundPool.Builder()
-                .setMaxStreams(8)
+                .setMaxStreams(12)
                 .setAudioAttributes(attributes)
                 .build();
         soundIds = new int[]{
                 soundPool.load(this, R.raw.shoot, 1),
+                soundPool.load(this, R.raw.impact, 1),
                 soundPool.load(this, R.raw.hit, 1),
                 soundPool.load(this, R.raw.explode, 1),
                 soundPool.load(this, R.raw.collect, 1),
                 soundPool.load(this, R.raw.boss_warning, 1),
+                soundPool.load(this, R.raw.boss_phase, 1),
                 soundPool.load(this, R.raw.boss_defeat, 1),
                 soundPool.load(this, R.raw.upgrade, 1)
         };
@@ -70,7 +72,7 @@ public class MainActivity extends GameActivity {
     @SuppressWarnings("unused")
     public int[] loadGameSlot(int slot) {
         int[] values = new int[SAVE_VALUE_COUNT];
-        if (preferences == null || slot < 0 || slot >= 2) return values;
+        if (preferences == null || slot < 0 || slot >= 3) return values;
         String prefix = "slot_" + slot + "_";
         values[0] = preferences.getBoolean(prefix + "occupied", false) ? 1 : 0;
         values[1] = preferences.getInt(prefix + "bosses", 0);
@@ -83,14 +85,15 @@ public class MainActivity extends GameActivity {
         values[8] = preferences.getInt(prefix + "max_health", 100);
         values[9] = preferences.getInt(prefix + "damage", 2000);
         values[10] = preferences.getInt(prefix + "fire_interval", 450);
+        values[11] = preferences.getInt(prefix + "last_played", 0);
         return values;
     }
 
     @SuppressWarnings("unused")
     public void saveGameSlot(int slot, int bosses, int score, int scoreBonus, int kills,
                              int survival, int normalTime, int health, int maxHealth,
-                             int damage, int fireInterval) {
-        if (preferences == null || slot < 0 || slot >= 2) return;
+                             int damage, int fireInterval, int lastPlayed) {
+        if (preferences == null || slot < 0 || slot >= 3) return;
         String prefix = "slot_" + slot + "_";
         preferences.edit()
                 .putBoolean(prefix + "occupied", true)
@@ -104,6 +107,7 @@ public class MainActivity extends GameActivity {
                 .putInt(prefix + "max_health", Math.max(100, maxHealth))
                 .putInt(prefix + "damage", Math.max(2000, damage))
                 .putInt(prefix + "fire_interval", Math.max(120, fireInterval))
+                .putInt(prefix + "last_played", Math.max(0, lastPlayed))
                 .apply();
     }
 

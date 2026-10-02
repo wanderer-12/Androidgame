@@ -32,6 +32,8 @@ int main() {
     assert(std::abs(game.debugEnemyHealth(EnemyType::Scout) - 12.5f) < 0.001f);
     assert(std::abs(game.debugEnemyHealth(EnemyType::Snake) - 22.5f) < 0.001f);
     assert(std::abs(game.debugEnemyHealth(EnemyType::Turret) - 45.0f) < 0.001f);
+    assert(std::abs(game.debugEnemyHealth(EnemyType::Flanker) - 10.0f) < 0.001f);
+    assert(std::abs(game.debugPermanentDropChance() - 0.12f) < 0.001f);
 
     InputState move;
     move.down = true;
@@ -60,7 +62,7 @@ int main() {
     game.handleInput(resume);
     assert(game.state() == GameState::Playing);
 
-    game.debugSetNormalCombatTime(89.9f);
+    game.debugSetNormalCombatTime(59.9f);
     step(game, 0.2f);
     assert(game.state() == GameState::BossIntro);
     assert((game.consumeEvents() & EventBossWarning) != 0);
@@ -82,7 +84,7 @@ int main() {
     assert(game.state() == GameState::Playing);
     assert(std::abs(game.playerStats().damage - 25.0f) < 0.01f);
 
-    game.debugSetNormalCombatTime(89.9f);
+    game.debugSetNormalCombatTime(59.9f);
     step(game, 0.2f);
     assert(game.state() == GameState::BossIntro);
     assert(game.boss().type == BossType::Hunter);
@@ -91,12 +93,21 @@ int main() {
     game.handleInput(chooseDamage);
     assert(game.state() == GameState::Playing);
 
-    game.debugSetNormalCombatTime(89.9f);
+    game.debugSetNormalCombatTime(59.9f);
     step(game, 0.2f);
     assert(game.state() == GameState::BossIntro);
     assert(game.boss().type == BossType::Prism);
     game.debugDamageBoss(game.boss().maxHealth);
     assert(game.progress().bossesDefeated == 3);
+    game.handleInput(chooseDamage);
+    assert(game.state() == GameState::Playing);
+
+    game.debugSetNormalCombatTime(59.9f);
+    step(game, 0.2f);
+    assert(game.state() == GameState::BossIntro);
+    assert(game.boss().type == BossType::Tempest);
+    game.debugDamageBoss(game.boss().maxHealth);
+    assert(game.progress().bossesDefeated == 4);
     game.handleInput(chooseDamage);
     assert(game.state() == GameState::Playing);
 
@@ -122,7 +133,8 @@ int main() {
     pickupGame.debugApplyPickup(PickupType::PermanentFireRate);
     assert(pickupGame.playerStats().fireInterval < 0.45f);
     pickupGame.debugApplyPickup(PickupType::PermanentMaxHealth);
-    assert(std::abs(pickupGame.playerStats().maxHealth - 115.0f) < 0.01f);
+    assert(std::abs(pickupGame.playerStats().maxHealth - 200.0f) < 0.01f);
+    assert(pickupGame.health() == 190);
 
     step(game, 1.0f);
     game.debugDamagePlayer(999.0f);
@@ -159,7 +171,7 @@ int main() {
     loadedGame.setSaveSlot(1, slot);
     InputState loadSlot;
     loadSlot.pressed = true;
-    loadSlot.x = 270.0f;
+    loadSlot.x = 180.0f;
     loadSlot.y = 330.0f;
     loadedGame.handleInput(loadSlot);
     assert(loadedGame.state() == GameState::Playing);

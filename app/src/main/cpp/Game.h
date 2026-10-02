@@ -18,8 +18,8 @@ enum class GameState {
     GameOver
 };
 
-enum class EnemyType { Scout, Snake, Turret };
-enum class BossType { Carrier, Hunter, Prism };
+enum class EnemyType { Scout, Snake, Turret, Flanker };
+enum class BossType { Carrier, Hunter, Prism, Tempest };
 enum class PickupType {
     Shield,
     Heal,
@@ -40,7 +40,9 @@ enum GameEventBits : uint32_t {
     EventBossDefeat = 1u << 5,
     EventUpgrade = 1u << 6,
     EventSaveHighScore = 1u << 7,
-    EventSaveSlot = 1u << 8
+    EventSaveSlot = 1u << 8,
+    EventImpact = 1u << 9,
+    EventBossPhase = 1u << 10
 };
 
 struct InputState {
@@ -113,6 +115,7 @@ struct SaveSnapshot {
     float survivalTime = 0.0f;
     float normalCombatTime = 0.0f;
     float currentHealth = 100.0f;
+    int lastPlayedEpoch = 0;
     PlayerStats playerStats{};
 };
 
@@ -122,9 +125,11 @@ struct GameAssets {
     std::shared_ptr<TextureAsset> enemyScout;
     std::shared_ptr<TextureAsset> enemySnake;
     std::shared_ptr<TextureAsset> enemyTurret;
+    std::shared_ptr<TextureAsset> enemyFlanker;
     std::shared_ptr<TextureAsset> bossCarrier;
     std::shared_ptr<TextureAsset> bossHunter;
     std::shared_ptr<TextureAsset> bossPrism;
+    std::shared_ptr<TextureAsset> bossTempest;
     std::shared_ptr<TextureAsset> playerBullet;
     std::shared_ptr<TextureAsset> boostedPlayerBullet;
     std::shared_ptr<TextureAsset> enemyBullet;
@@ -180,6 +185,8 @@ public:
     float debugEnemyHealth(EnemyType type, int stage = 0) const;
     void debugDamageBoss(float damage);
     void debugApplyPickup(PickupType type);
+    std::size_t debugActiveEnemies() const;
+    float debugPermanentDropChance() const;
     void debugDamagePlayer(float damage);
 #endif
 
@@ -237,6 +244,7 @@ private:
 
     void spawnEnemy();
     void spawnPickup(bool allowAdvanced = true, float x = -1.0f, float y = -24.0f);
+    void spawnPermanentPickup(float x, float y);
     void spawnPlayerBullet();
     void spawnEnemyBullet(float x, float y, float angle, float speed, float damage);
     void spawnAimedEnemyBullet(float x, float y, float speed, float damage, float angleOffset = 0.0f);
@@ -294,5 +302,5 @@ private:
     std::array<Pickup, 16> pickups_{};
     std::array<Explosion, 40> explosions_{};
     std::array<PickupEffect, 16> pickupEffects_{};
-    std::array<SaveSnapshot, 2> saveSlots_{};
+    std::array<SaveSnapshot, 3> saveSlots_{};
 };

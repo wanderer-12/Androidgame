@@ -25,7 +25,7 @@ public:
         loadHighScore_ = env_->GetMethodID(activityClass, "loadHighScore", "()I");
         saveHighScore_ = env_->GetMethodID(activityClass, "saveHighScore", "(I)V");
         loadGameSlot_ = env_->GetMethodID(activityClass, "loadGameSlot", "(I)[I");
-        saveGameSlot_ = env_->GetMethodID(activityClass, "saveGameSlot", "(IIIIIIIIIII)V");
+        saveGameSlot_ = env_->GetMethodID(activityClass, "saveGameSlot", "(IIIIIIIIIIII)V");
         env_->DeleteLocalRef(activityClass);
     }
 
@@ -51,9 +51,9 @@ public:
         auto *values = static_cast<jintArray>(env_->CallObjectMethod(activity_, loadGameSlot_, slot));
         if (!values) return snapshot;
         const jsize length = env_->GetArrayLength(values);
-        if (length >= 11) {
-            jint data[11]{};
-            env_->GetIntArrayRegion(values, 0, 11, data);
+        if (length >= 12) {
+            jint data[12]{};
+            env_->GetIntArrayRegion(values, 0, 12, data);
             snapshot.occupied = data[0] != 0;
             snapshot.bossesDefeated = data[1];
             snapshot.score = data[2];
@@ -65,6 +65,7 @@ public:
             snapshot.playerStats.maxHealth = static_cast<float>(data[8]);
             snapshot.playerStats.damage = static_cast<float>(data[9]) / 100.0f;
             snapshot.playerStats.fireInterval = static_cast<float>(data[10]) / 1000.0f;
+            snapshot.lastPlayedEpoch = data[11];
         }
         env_->DeleteLocalRef(values);
         return snapshot;
@@ -79,7 +80,8 @@ public:
                              static_cast<jint>(snapshot.currentHealth),
                              static_cast<jint>(snapshot.playerStats.maxHealth),
                              static_cast<jint>(snapshot.playerStats.damage * 100.0f),
-                             static_cast<jint>(snapshot.playerStats.fireInterval * 1000.0f));
+                             static_cast<jint>(snapshot.playerStats.fireInterval * 1000.0f),
+                             snapshot.lastPlayedEpoch);
     }
 
 private:
@@ -99,7 +101,7 @@ public:
         explicit Engine(android_app *app)
             : app_(app), platform_(app->activity), game_(platform_.loadHighScore()),
               lastFrame_(Clock::now()) {
-        for (int slot = 0; slot < 2; ++slot) game_.setSaveSlot(slot, platform_.loadGameSlot(slot));
+        for (int slot = 0; slot < 3; ++slot) game_.setSaveSlot(slot, platform_.loadGameSlot(slot));
     }
 
     void onCommand(int32_t command) {
@@ -161,9 +163,11 @@ private:
         assets_.enemyScout = renderer_->loadTexture("enemy_scout.png", true);
         assets_.enemySnake = renderer_->loadTexture("enemy_snake.png", true);
         assets_.enemyTurret = renderer_->loadTexture("enemy_turret.png", true);
+        assets_.enemyFlanker = renderer_->loadTexture("enemy_flanker.png", true);
         assets_.bossCarrier = renderer_->loadTexture("boss_carrier.png", true);
         assets_.bossHunter = renderer_->loadTexture("boss_hunter.png", true);
         assets_.bossPrism = renderer_->loadTexture("boss_prism.png", true);
+        assets_.bossTempest = renderer_->loadTexture("boss_tempest.png", true);
         assets_.playerBullet = renderer_->loadTexture("bullet_player.png", true);
         assets_.boostedPlayerBullet = renderer_->loadTexture("bullet_player_boost.png", true);
         assets_.enemyBullet = renderer_->loadTexture("bullet_enemy.png", true);
@@ -186,12 +190,14 @@ private:
 
     void dispatchEvents(uint32_t events) {
         if (events & EventShoot) platform_.playEvent(0);
-        if (events & EventHit) platform_.playEvent(1);
-        if (events & EventExplosion) platform_.playEvent(2);
-        if (events & EventPickup) platform_.playEvent(3);
-        if (events & EventBossWarning) platform_.playEvent(4);
-        if (events & EventBossDefeat) platform_.playEvent(5);
-        if (events & EventUpgrade) platform_.playEvent(6);
+        if (events & EventImpact) platform_.playEvent(1);
+        if (events & EventHit) platform_.playEvent(2);
+        if (events & EventExplosion) platform_.playEvent(3);
+        if (events & EventPickup) platform_.playEvent(4);
+        if (events & EventBossWarning) platform_.playEvent(5);
+        if (events & EventBossPhase) platform_.playEvent(6);
+        if (events & EventBossDefeat) platform_.playEvent(7);
+        if (events & EventUpgrade) platform_.playEvent(8);
         if (events & EventSaveSlot) {
             platform_.saveGameSlot(game_.selectedSlot(), game_.saveSnapshot());
         }
